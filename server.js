@@ -14,7 +14,7 @@ const fixServer = new FIXServer();
 
 try {
     fixServer.createServer({
-        host: 'localhost',
+        host: '0.0.0.0',
         port: 31000,
         protocol: 'tcp',
         sender: 'WDTP',
