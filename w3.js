@@ -1,8 +1,7 @@
-
+import fetch from "node-fetch";
 
 export async function getKucoinTokenPrice(pair) {
     const url = `https://api.kucoin.com/api/v1/market/orderbook/level1?symbol=${pair}`;
-
     try {
         let response = await fetch(url, {
             method: 'GET',

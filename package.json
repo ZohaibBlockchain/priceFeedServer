@@ -13,6 +13,7 @@
   "dependencies": {
     "comment-json": "^4.2.3",
     "dotenv": "^16.3.1",
-    "free-fx": "^1.0.0"
+    "free-fx": "^1.0.0",
+    "node-fetch": "^3.3.2"
   }
 }
