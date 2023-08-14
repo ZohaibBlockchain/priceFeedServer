@@ -56,7 +56,6 @@ function msg(_msg) {
     }
     else if (refined['35'] === Messages.MarketDataRequest) {
         Instruments.forEach(element => {
-
             if (element.name === refined['55'] && element.Value === false) {
                 element.Value = true;
                 const MDR = fixServer.createMessage(
@@ -139,7 +138,7 @@ async function engine() {
         if (element.Value === true) {
             if (element.Exchange === 'KUCOIN') {
                 let price = await getKucoinTokenPrice(element.pairName);
-                let newPriceFeed = { name: element.name, price: price }
+                let newPriceFeed = { symbol: element.name, price: price }
                 compileObject.push(newPriceFeed);
                 console.log(element.pairName, ' Price: ', price);
             }
