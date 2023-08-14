@@ -91,7 +91,7 @@ function authClient(msg) {
     }
     else {
         const logon = fixServer.createMessage(
-            new Field(Fields.MsgType, Messages.Logon),
+            new Field(Fields.MsgType, Messages.Logout),
             new Field(Fields.MsgSeqNum, fixServer.getNextTargetMsgSeqNum()),
             new Field(Fields.RawData, 'Wrong Password'),
             new Field(Fields.TargetCompID, SENDER),
