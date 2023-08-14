@@ -7,6 +7,12 @@ import {
     EncryptMethod,
 } from 'free-fx/FIXServer';
 import { getKucoinTokenPrice } from "./w3.js";
+import dotenv from 'dotenv';
+dotenv.config();
+
+
+
+
 const requiredFields = ['Username', 'MsgType', 'EncryptMethod', 'Password', 'Symbol', 'HeartBtInt', 'MsgSeqNum'];
 
 
@@ -74,7 +80,7 @@ function msg(_msg) {
 
 function authClient(msg) {
     console.log(msg['554'])
-    if (msg['554'] == '1234') {
+    if (msg['554'] == process.env.SECRET_KEY) {
         const logon = fixServer.createMessage(
             new Field(Fields.MsgType, Messages.Logon),
             new Field(Fields.MsgSeqNum, fixServer.getNextTargetMsgSeqNum()),

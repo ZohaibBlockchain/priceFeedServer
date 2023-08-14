@@ -1,17 +1,6 @@
-
-import { getKucoinTokenPrice } from "./w3";
-
-
+import dotenv from 'dotenv';
+dotenv.config();
 
 
+console.log(process.env.SECRET_KEY);
 
-
-
-let c = {pairName:"SIDUS-USDT",Exchange:"KUCOIN"}
-
-//Object format
-let ActiveList = [];
-
-
-
-engine();

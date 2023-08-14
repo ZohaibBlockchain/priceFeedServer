@@ -12,7 +12,7 @@
   "license": "ISC",
   "dependencies": {
     "comment-json": "^4.2.3",
-    "ethers": "^6.7.0",
+    "dotenv": "^16.3.1",
     "free-fx": "^1.0.0"
   }
 }
