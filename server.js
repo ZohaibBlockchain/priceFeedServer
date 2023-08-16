@@ -22,11 +22,11 @@ const fixServer = new FIXServer();
 
 const SENDER = 'CLIENT';
 const TARGET = 'WDTP';
-
+let Auth = false;
 try {
     fixServer.createServer({
         host: '0.0.0.0',
-        port: 31000,
+        port: '31000',
         protocol: 'tcp',
         sender: TARGET,
         target: SENDER,
@@ -35,11 +35,12 @@ try {
         onOpen: () => { console.log('Opened') },
         onMessage: (message) => { msg(message) },
         onError: (error) => { console.log(error) },
-        onClose: () => { 
+        onClose: () => {
             Instruments.forEach(element => {
-              element.Value = false;
+                element.Value = false;
             });
-         },
+            Auth = false;
+        },
     });
 } catch (error) {
     console.error('TCP Connection Error:', error);
@@ -59,15 +60,15 @@ function msg(_msg) {
     if (refined['35'] === Messages.Logon) {
         authClient(refined);
     }
-    else if (refined['35'] === Messages.MarketDataRequest) {
+    else if (refined['35'] === Messages.MarketDataRequest && Auth) {
         Instruments.forEach(element => {
             if (element.name === refined['55'] && element.Value === false) {
                 element.Value = true;
                 const MDR = fixServer.createMessage(
                     new Field(Fields.MsgType, Messages.MarketDataRequest),
+                    new Field(Fields.SendingTime, fixServer.getTimestamp()),
                     new Field(Fields.MsgSeqNum, fixServer.getNextTargetMsgSeqNum()),
-                    new Field(Fields.RawData, ('Subscribed to: ' + refined['55'])),
-                    new Field(Fields.TargetCompID, SENDER),
+                    new Field(Fields.Text, ('Subscribed to: ' + refined['55'])),
                 );
                 fixServer.send(MDR);
             }
@@ -78,29 +79,25 @@ function msg(_msg) {
 
 
 function authClient(msg) {
-    console.log(msg['554'])
     if (msg['554'] == process.env.SECRET_KEY) {
         const logon = fixServer.createMessage(
             new Field(Fields.MsgType, Messages.Logon),
             new Field(Fields.MsgSeqNum, fixServer.getNextTargetMsgSeqNum()),
-            new Field(Fields.RawData, 'Succefull Logon'),
-            new Field(Fields.TargetCompID, SENDER),
+            new Field(Fields.SendingTime, fixServer.getTimestamp()),
+            new Field(Fields.Text, 'Succefull Logon'),
         );
         fixServer.send(logon);
+        Auth = true;
     }
     else {
         const logon = fixServer.createMessage(
             new Field(Fields.MsgType, Messages.Logout),
-            new Field(Fields.MsgSeqNum, fixServer.getNextTargetMsgSeqNum()),
-            new Field(Fields.RawData, 'Wrong Password'),
-            new Field(Fields.TargetCompID, SENDER),
+            new Field(Fields.Text, 'Wrong Password'),
+            new Field(Fields.SendingTime, fixServer.getTimestamp()),
         );
         fixServer.send(logon);
     }
 }
-
-
-
 
 
 
@@ -152,14 +149,20 @@ async function engine() {
 
     // Wait for all promises to complete
     await Promise.all(promises);
-
     // After all promises are completed, check if compileObject has data and send it
     if (compileObject.length > 0) {
         const feeds = fixServer.createMessage(
             new Field(Fields.MsgType, Messages.MassQuote),
             new Field(Fields.MsgSeqNum, fixServer.getNextTargetMsgSeqNum()),
-            new Field(Fields.RawData,JSON.stringify(compileObject)),
-            new Field(Fields.TargetCompID, SENDER),
+            new Field(Fields.SendingTime, fixServer.getTimestamp()),
+            new Field(Fields.Symbol, compileObject[0].symbol),
+            new Field(Fields.NoQuoteSets, '1'),
+            new Field(Fields.QuoteEntryID, '0'),
+            new Field(Fields.BidSize, '1000000000000000'),
+            new Field(Fields.OfferSize, '1000000000000000'),
+            new Field(Fields.BidSpotRate, compileObject[0].price),
+            new Field(Fields.OfferSpotRate, compileObject[0].price),
+           
         );
         fixServer.send(feeds);
     }
