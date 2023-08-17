@@ -47,8 +47,6 @@ try {
 }
 
 
-
-
 function ready() {
     console.log('Server Ready');
 }
@@ -59,21 +57,19 @@ function msg(_msg) {
     const refined = parseFixMessage(msg);
     if (refined['35'] === Messages.Logon) {
         authClient(refined);
+        return;
     }
+    
     else if (refined['35'] === Messages.MarketDataRequest && Auth) {
         Instruments.forEach(element => {
-            if (element.name === refined['55'] && element.Value === false) {
+            if (element.name === refined['55'] && element.Value === false && refined['58'] === 'sub') {
                 element.Value = true;
-                const MDR = fixServer.createMessage(
-                    new Field(Fields.MsgType, Messages.MarketDataRequest),
-                    new Field(Fields.SendingTime, fixServer.getTimestamp()),
-                    new Field(Fields.MsgSeqNum, fixServer.getNextTargetMsgSeqNum()),
-                    new Field(Fields.Text, ('Subscribed to: ' + refined['55'])),
-                );
-                fixServer.send(MDR);
+            }
+            else if(element.name === refined['55'] && element.Value === true && refined['58'] === 'unsub')
+            {
+                element.Value = false;
             }
         });
-        console.log(Instruments);
     }
 }
 
@@ -81,10 +77,11 @@ function msg(_msg) {
 function authClient(msg) {
     if (msg['554'] == process.env.SECRET_KEY) {
         const logon = fixServer.createMessage(
-            new Field(Fields.MsgType, Messages.Logon),
+            new Field(Fields.MsgType, Messages.TradingSessionStatus),
             new Field(Fields.MsgSeqNum, fixServer.getNextTargetMsgSeqNum()),
             new Field(Fields.SendingTime, fixServer.getTimestamp()),
-            new Field(Fields.Text, 'Succefull Logon'),
+            new Field(Fields.TradSesStatus,1),
+            new Field(Fields.TradingSessionID,'001'),
         );
         fixServer.send(logon);
         Auth = true;
@@ -152,17 +149,17 @@ async function engine() {
     // After all promises are completed, check if compileObject has data and send it
     if (compileObject.length > 0) {
         const feeds = fixServer.createMessage(
-            new Field(Fields.MsgType, Messages.MassQuote),
+            new Field(Fields.MsgType, Messages.MarketDataSnapshotFullRefresh),
             new Field(Fields.MsgSeqNum, fixServer.getNextTargetMsgSeqNum()),
             new Field(Fields.SendingTime, fixServer.getTimestamp()),
             new Field(Fields.Symbol, compileObject[0].symbol),
-            new Field(Fields.NoQuoteSets, '1'),
-            new Field(Fields.QuoteEntryID, '0'),
-            new Field(Fields.BidSize, '1000000000000000'),
-            new Field(Fields.OfferSize, '1000000000000000'),
-            new Field(Fields.BidSpotRate, compileObject[0].price),
-            new Field(Fields.OfferSpotRate, compileObject[0].price),
-           
+            new Field(Fields.MDReportID, '000'),
+            new Field(Fields.NoMDEntries, '1'),
+            new Field(Fields.MDEntryType, '1'),
+            new Field(Fields.MDEntrySize, '1000000000'),
+            new Field(Fields.MDEntryPx, compileObject[0].price),
+            new Field(Fields.Issuer, '4NX'),
+            new Field(Fields.QuoteEntryID, '000'),
         );
         fixServer.send(feeds);
     }
