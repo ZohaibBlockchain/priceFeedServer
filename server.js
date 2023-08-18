@@ -15,7 +15,7 @@ dotenv.config();
 const requiredFields = ['Username', 'MsgType', 'EncryptMethod', 'Password', 'Symbol', 'HeartBtInt', 'MsgSeqNum'];
 
 
-const Instruments = [{ name: 'Deliverable.SIDUS', pairName: "SIDUS-USDT", Exchange: "KUCOIN", Value: false }]
+const Instruments = [{ name: 'Deliverable.SIDUS', pairName: "SIDUS-USDT", Exchange: "KUCOIN", Value: false ,MDReqID:'0'}]
 
 
 const fixServer = new FIXServer();
@@ -62,12 +62,14 @@ function msg(_msg) {
     
     else if (refined['35'] === Messages.MarketDataRequest && Auth) {
         Instruments.forEach(element => {
-            if (element.name === refined['55'] && element.Value === false && refined['58'] === 'sub') {
+            if (element.name === refined['55'] && element.Value === false && (refined['263'] === '1' || refined['263'] === '0') ) {
                 element.Value = true;
+                element.MDReqID = refined['262'];
             }
-            else if(element.name === refined['55'] && element.Value === true && refined['58'] === 'unsub')
+            else if(element.name === refined['55'] && element.Value === true && refined['263'] === '3')
             {
                 element.Value = false;
+                element.MDReqID = '0';
             }
         });
     }
@@ -137,29 +139,33 @@ async function engine() {
         if (element.Value === true) {
             if (element.Exchange === 'KUCOIN') {
                 let price = await getKucoinTokenPrice(element.pairName);
-                let newPriceFeed = { symbol: element.name, price: price }
+                let newPriceFeed = { symbol: element.name, price: price,MDReqID: element.MDReqID}
                 compileObject.push(newPriceFeed);
                 console.log(element.pairName, ' Price: ', price);
             }
         }
     });
 
-    // Wait for all promises to complete
     await Promise.all(promises);
-    // After all promises are completed, check if compileObject has data and send it
     if (compileObject.length > 0) {
         const feeds = fixServer.createMessage(
             new Field(Fields.MsgType, Messages.MarketDataSnapshotFullRefresh),
             new Field(Fields.MsgSeqNum, fixServer.getNextTargetMsgSeqNum()),
+            new Field(Fields.SenderCompID, SENDER),
             new Field(Fields.SendingTime, fixServer.getTimestamp()),
+            new Field(Fields.TargetCompID, TARGET),
             new Field(Fields.Symbol, compileObject[0].symbol),
-            new Field(Fields.MDReportID, '000'),
-            new Field(Fields.NoMDEntries, '1'),
-            new Field(Fields.MDEntryType, '1'),
-            new Field(Fields.MDEntrySize, '1000000000'),
+            new Field(Fields.MDReqID,compileObject[0].MDReqID),
+            new Field(Fields.NoMDEntries, '2'),
+            new Field(Fields.MDEntryType, '0'),
             new Field(Fields.MDEntryPx, compileObject[0].price),
+            new Field(Fields.MDEntrySize, '1000000000'),
+            new Field(Fields.QuoteEntryID, '0'),
             new Field(Fields.Issuer, '4NX'),
-            new Field(Fields.QuoteEntryID, '000'),
+            new Field(Fields.MDEntryType, '1'),
+            new Field(Fields.MDEntryPx, compileObject[0].price),
+            new Field(Fields.MDEntrySize, '1000000000'),
+            new Field(Fields.Issuer, '4NX'),
         );
         fixServer.send(feeds);
     }
