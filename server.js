@@ -165,6 +165,7 @@ async function engine() {
             new Field(Fields.MDEntryType, '1'),
             new Field(Fields.MDEntryPx, compileObject[0].price),
             new Field(Fields.MDEntrySize, '1000000000'),
+            new Field(Fields.QuoteEntryID, '0'),
             new Field(Fields.Issuer, '4NX'),
         );
         fixServer.send(feeds);
