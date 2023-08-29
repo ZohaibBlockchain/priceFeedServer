@@ -62,11 +62,11 @@ function msg(_msg) {
     
     else if (refined['35'] === Messages.MarketDataRequest && Auth) {
         Instruments.forEach(element => {
-            if (element.name === refined['55'] && element.Value === false && (refined['263'] === '1' || refined['263'] === '0') ) {
+            if (element.name === refined['55'] && element.Value === false && (refined['263'] === '1') ) {
                 element.Value = true;
                 element.MDReqID = refined['262'];
             }
-            else if(element.name === refined['55'] && element.Value === true && refined['263'] === '3')
+            else if(element.name === refined['55'] && element.Value === true && refined['263'] === '2')
             {
                 element.Value = false;
                 element.MDReqID = '0';
@@ -78,25 +78,77 @@ function msg(_msg) {
 
 function authClient(msg) {
     if (msg['554'] == process.env.SECRET_KEY) {
-        const logon = fixServer.createMessage(
-            new Field(Fields.MsgType, Messages.TradingSessionStatus),
-            new Field(Fields.MsgSeqNum, fixServer.getNextTargetMsgSeqNum()),
-            new Field(Fields.SendingTime, fixServer.getTimestamp()),
-            new Field(Fields.TradSesStatus,1),
-            new Field(Fields.TradingSessionID,'001'),
-        );
-        fixServer.send(logon);
+        // const logon = fixServer.createMessage(
+        //     new Field(Fields.MsgType, Messages.Logon),
+        //     new Field(Fields.SenderCompID, SENDER),
+        //     new Field(Fields.TargetCompID, TARGET),
+        //     new Field(Fields.MsgSeqNum, fixServer.getNextTargetMsgSeqNum()),
+        //     new Field(Fields.SendingTime, fixServer.getTimestamp()),
+        //     new Field(Fields.EncryptMethod, EncryptMethod.None),
+        //     new Field(Fields.HeartBtInt, msg['108']),
+        // );
+        // fixServer.send(logon);
         Auth = true;
     }
     else {
         const logon = fixServer.createMessage(
             new Field(Fields.MsgType, Messages.Logout),
-            new Field(Fields.Text, 'Wrong Password'),
+            new Field(Fields.SenderCompID, SENDER),
+            new Field(Fields.TargetCompID, TARGET),
+            new Field(Fields.MsgSeqNum, fixServer.getNextTargetMsgSeqNum()),
             new Field(Fields.SendingTime, fixServer.getTimestamp()),
+            new Field(Fields.Text, 'Wrong Password'),
         );
         fixServer.send(logon);
     }
 }
+
+
+
+
+
+async function engine() {
+    let compileObject = [];
+    const promises = Instruments.map(async element => {
+        if (element.Value === true) {
+            if (element.Exchange === 'KUCOIN') {
+                let price = await getKucoinTokenPrice(element.pairName);
+                let newPriceFeed = { symbol: element.name, price: price,MDReqID: element.MDReqID}
+                compileObject.push(newPriceFeed);
+                console.log(element.pairName, ' Price: ', price);
+            }
+        }
+    });
+
+    await Promise.all(promises);
+    if (compileObject.length > 0) {
+        const feeds = fixServer.createMessage(
+            new Field(Fields.MsgType, Messages.MarketDataSnapshotFullRefresh),
+            new Field(Fields.SenderCompID, SENDER),
+            new Field(Fields.TargetCompID, TARGET),
+            new Field(Fields.MsgSeqNum, fixServer.getNextTargetMsgSeqNum()),
+            new Field(Fields.SendingTime, fixServer.getTimestamp()),
+            new Field(Fields.Symbol, compileObject[0].symbol),
+            new Field(Fields.MDReqID,compileObject[0].MDReqID),
+            new Field(Fields.NoMDEntries, '2'),
+            new Field(Fields.MDEntryType, '0'),
+            new Field(Fields.MDEntryPx, compileObject[0].price),
+            new Field(Fields.MDEntrySize, '1000000000'),
+            new Field(Fields.QuoteEntryID, '0'),
+            new Field(Fields.MDEntryType, '1'),
+            new Field(Fields.MDEntryPx, compileObject[0].price),
+            new Field(Fields.MDEntrySize, '1000000000'),
+            new Field(Fields.QuoteEntryID, '1'),
+        );
+        fixServer.send(feeds);
+    }
+}
+
+
+setInterval(engine, 2500);
+
+
+
 
 
 
@@ -130,48 +182,4 @@ function parseFixMessage(fixMessage) {
     return result;
 }
 
-
-async function engine() {
-    let compileObject = [];
-
-    // Map Instruments to an array of promises
-    const promises = Instruments.map(async element => {
-        if (element.Value === true) {
-            if (element.Exchange === 'KUCOIN') {
-                let price = await getKucoinTokenPrice(element.pairName);
-                let newPriceFeed = { symbol: element.name, price: price,MDReqID: element.MDReqID}
-                compileObject.push(newPriceFeed);
-                console.log(element.pairName, ' Price: ', price);
-            }
-        }
-    });
-
-    await Promise.all(promises);
-    if (compileObject.length > 0) {
-        const feeds = fixServer.createMessage(
-            new Field(Fields.MsgType, Messages.MarketDataSnapshotFullRefresh),
-            new Field(Fields.MsgSeqNum, fixServer.getNextTargetMsgSeqNum()),
-            new Field(Fields.SenderCompID, SENDER),
-            new Field(Fields.SendingTime, fixServer.getTimestamp()),
-            new Field(Fields.TargetCompID, TARGET),
-            new Field(Fields.Symbol, compileObject[0].symbol),
-            new Field(Fields.MDReqID,compileObject[0].MDReqID),
-            new Field(Fields.NoMDEntries, '2'),
-            new Field(Fields.MDEntryType, '0'),
-            new Field(Fields.MDEntryPx, compileObject[0].price),
-            new Field(Fields.MDEntrySize, '1000000000'),
-            new Field(Fields.QuoteEntryID, '0'),
-            new Field(Fields.Issuer, '4NX'),
-            new Field(Fields.MDEntryType, '1'),
-            new Field(Fields.MDEntryPx, compileObject[0].price),
-            new Field(Fields.MDEntrySize, '1000000000'),
-            new Field(Fields.QuoteEntryID, '0'),
-            new Field(Fields.Issuer, '4NX'),
-        );
-        fixServer.send(feeds);
-    }
-}
-
-
-setInterval(engine, 2500);
 
