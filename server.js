@@ -10,12 +10,8 @@ import dotenv from 'dotenv';
 dotenv.config();
 
 
-
-
 const requiredFields = ['Username', 'MsgType', 'EncryptMethod', 'Password', 'Symbol', 'HeartBtInt', 'MsgSeqNum'];
-
-
-const Instruments = [{ name: 'Deliverable.SIDUS', pairName: "SIDUS-USDT", Exchange: "KUCOIN", Value: false ,MDReqID:'0'}]
+const Instruments = [{ name: 'SIDUS', pairName: "SIDUS-USDT", Exchange: "KUCOIN", Value: false, MDReqID: '0' }]
 
 
 const fixServer = new FIXServer();
@@ -59,42 +55,36 @@ function msg(_msg) {
         authClient(refined);
         return;
     }
-    
+
     else if (refined['35'] === Messages.MarketDataRequest && Auth) {
         Instruments.forEach(element => {
-            if (element.name === refined['55'] && element.Value === false && (refined['263'] === '1') ) {
+            if (element.name === refined['55'] && element.Value === false && (refined['263'] === '1')) {
                 element.Value = true;
                 element.MDReqID = refined['262'];
             }
-            else if(element.name === refined['55'] && element.Value === true && refined['263'] === '2')
-            {
+            else if (element.name === refined['55'] && element.Value === true && refined['263'] === '2') {
                 element.Value = false;
                 element.MDReqID = '0';
             }
         });
+    }
+    else if (refined['35'] === Messages.TestRequest)
+    {
+        
+        
     }
 }
 
 
 function authClient(msg) {
     if (msg['554'] == process.env.SECRET_KEY) {
-        // const logon = fixServer.createMessage(
-        //     new Field(Fields.MsgType, Messages.Logon),
-        //     new Field(Fields.SenderCompID, SENDER),
-        //     new Field(Fields.TargetCompID, TARGET),
-        //     new Field(Fields.MsgSeqNum, fixServer.getNextTargetMsgSeqNum()),
-        //     new Field(Fields.SendingTime, fixServer.getTimestamp()),
-        //     new Field(Fields.EncryptMethod, EncryptMethod.None),
-        //     new Field(Fields.HeartBtInt, msg['108']),
-        // );
-        // fixServer.send(logon);
         Auth = true;
     }
     else {
         const logon = fixServer.createMessage(
             new Field(Fields.MsgType, Messages.Logout),
-            new Field(Fields.SenderCompID, SENDER),
-            new Field(Fields.TargetCompID, TARGET),
+            new Field(Fields.SenderCompID, TARGET),
+            new Field(Fields.TargetCompID, SENDER),
             new Field(Fields.MsgSeqNum, fixServer.getNextTargetMsgSeqNum()),
             new Field(Fields.SendingTime, fixServer.getTimestamp()),
             new Field(Fields.Text, 'Wrong Password'),
@@ -113,7 +103,7 @@ async function engine() {
         if (element.Value === true) {
             if (element.Exchange === 'KUCOIN') {
                 let price = await getKucoinTokenPrice(element.pairName);
-                let newPriceFeed = { symbol: element.name, price: price,MDReqID: element.MDReqID}
+                let newPriceFeed = { symbol: element.name, price: price, MDReqID: element.MDReqID }
                 compileObject.push(newPriceFeed);
                 console.log(element.pairName, ' Price: ', price);
             }
@@ -124,12 +114,12 @@ async function engine() {
     if (compileObject.length > 0) {
         const feeds = fixServer.createMessage(
             new Field(Fields.MsgType, Messages.MarketDataSnapshotFullRefresh),
-            new Field(Fields.SenderCompID, SENDER),
-            new Field(Fields.TargetCompID, TARGET),
+            new Field(Fields.SenderCompID, TARGET),
+            new Field(Fields.TargetCompID, SENDER),
             new Field(Fields.MsgSeqNum, fixServer.getNextTargetMsgSeqNum()),
             new Field(Fields.SendingTime, fixServer.getTimestamp()),
             new Field(Fields.Symbol, compileObject[0].symbol),
-            new Field(Fields.MDReqID,compileObject[0].MDReqID),
+            new Field(Fields.MDReqID, compileObject[0].MDReqID),
             new Field(Fields.NoMDEntries, '2'),
             new Field(Fields.MDEntryType, '0'),
             new Field(Fields.MDEntryPx, compileObject[0].price),
