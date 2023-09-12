@@ -11,7 +11,7 @@ dotenv.config();
 
 
 const requiredFields = ['Username', 'MsgType', 'EncryptMethod', 'Password', 'Symbol', 'HeartBtInt', 'MsgSeqNum'];
-const Instruments = [{ name: 'SIDUS', pairName: "SIDUS-USDT", Exchange: "KUCOIN", Value: false, MDReqID: '0' }]
+const Instruments = [{ name: 'Test', pairName: "Test", Exchange: "Test", Value: false, MDReqID: '0' },{ name: 'SIDUS', pairName: "SIDUS-USDT", Exchange: "KUCOIN", Value: false, MDReqID: '0' }]
 
 
 const fixServer = new FIXServer();
@@ -68,10 +68,9 @@ function msg(_msg) {
             }
         });
     }
-    else if (refined['35'] === Messages.TestRequest)
-    {
-        
-        
+    else if (refined['35'] === Messages.TestRequest) {
+
+
     }
 }
 
@@ -98,44 +97,63 @@ function authClient(msg) {
 
 
 async function engine() {
-    let compileObject = [];
+
     const promises = Instruments.map(async element => {
         if (element.Value === true) {
-            if (element.Exchange === 'KUCOIN') {
+            if (element.Exchange === 'Test') {
+                let newPriceFeed = { symbol: element.name, price: 0.00, MDReqID: element.MDReqID }
+                const feeds = fixServer.createMessage(
+                    new Field(Fields.MsgType, Messages.MarketDataSnapshotFullRefresh),
+                    new Field(Fields.SenderCompID, TARGET),
+                    new Field(Fields.TargetCompID, SENDER),
+                    new Field(Fields.MsgSeqNum, fixServer.getNextTargetMsgSeqNum()),
+                    new Field(Fields.SendingTime, fixServer.getTimestamp()),
+                    new Field(Fields.Symbol, newPriceFeed.symbol),
+                    new Field(Fields.MDReqID, newPriceFeed.MDReqID),
+                    new Field(Fields.NoMDEntries, '2'),
+                    new Field(Fields.MDEntryType, '0'),
+                    new Field(Fields.MDEntryPx, newPriceFeed.price),
+                    new Field(Fields.MDEntrySize, '1000000000'),
+                    new Field(Fields.QuoteEntryID, '0'),
+                    new Field(Fields.MDEntryType, '1'),
+                    new Field(Fields.MDEntryPx, newPriceFeed.price),
+                    new Field(Fields.MDEntrySize, '1000000000'),
+                    new Field(Fields.QuoteEntryID, '1'),
+                );
+                fixServer.send(feeds);
+            }
+
+
+            else if (element.Exchange === 'KUCOIN') {
                 let price = await getKucoinTokenPrice(element.pairName);
                 let newPriceFeed = { symbol: element.name, price: price, MDReqID: element.MDReqID }
-                compileObject.push(newPriceFeed);
-                console.log(element.pairName, ' Price: ', price);
+
+                const feeds = fixServer.createMessage(
+                    new Field(Fields.MsgType, Messages.MarketDataSnapshotFullRefresh),
+                    new Field(Fields.SenderCompID, TARGET),
+                    new Field(Fields.TargetCompID, SENDER),
+                    new Field(Fields.MsgSeqNum, fixServer.getNextTargetMsgSeqNum()),
+                    new Field(Fields.SendingTime, fixServer.getTimestamp()),
+                    new Field(Fields.Symbol, newPriceFeed.symbol),
+                    new Field(Fields.MDReqID, newPriceFeed.MDReqID),
+                    new Field(Fields.NoMDEntries, '2'),
+                    new Field(Fields.MDEntryType, '0'),
+                    new Field(Fields.MDEntryPx, newPriceFeed.price),
+                    new Field(Fields.MDEntrySize, '1000000000'),
+                    new Field(Fields.QuoteEntryID, '0'),
+                    new Field(Fields.MDEntryType, '1'),
+                    new Field(Fields.MDEntryPx, newPriceFeed.price),
+                    new Field(Fields.MDEntrySize, '1000000000'),
+                    new Field(Fields.QuoteEntryID, '1'),
+                );
+                fixServer.send(feeds);
             }
         }
     });
-
-    await Promise.all(promises);
-    if (compileObject.length > 0) {
-        const feeds = fixServer.createMessage(
-            new Field(Fields.MsgType, Messages.MarketDataSnapshotFullRefresh),
-            new Field(Fields.SenderCompID, TARGET),
-            new Field(Fields.TargetCompID, SENDER),
-            new Field(Fields.MsgSeqNum, fixServer.getNextTargetMsgSeqNum()),
-            new Field(Fields.SendingTime, fixServer.getTimestamp()),
-            new Field(Fields.Symbol, compileObject[0].symbol),
-            new Field(Fields.MDReqID, compileObject[0].MDReqID),
-            new Field(Fields.NoMDEntries, '2'),
-            new Field(Fields.MDEntryType, '0'),
-            new Field(Fields.MDEntryPx, compileObject[0].price),
-            new Field(Fields.MDEntrySize, '1000000000'),
-            new Field(Fields.QuoteEntryID, '0'),
-            new Field(Fields.MDEntryType, '1'),
-            new Field(Fields.MDEntryPx, compileObject[0].price),
-            new Field(Fields.MDEntrySize, '1000000000'),
-            new Field(Fields.QuoteEntryID, '1'),
-        );
-        fixServer.send(feeds);
-    }
 }
 
 
-setInterval(engine, 2500);
+setInterval(engine, 2000);
 
 
 
@@ -156,14 +174,13 @@ function extractRequiredFields(message) {
 
 
 process.on('unhandledRejection', (reason, promise) => {
-    console.error('Unhandled Promise Rejection:', reason);
+    console.log('Unhandled Promise Rejection:', reason);
 });
 
 
 function parseFixMessage(fixMessage) {
     const fields = fixMessage.split('|');
     const result = {};
-
     fields.forEach(field => {
         const [tag, value] = field.split('=');
         result[tag] = value;
